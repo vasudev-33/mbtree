@@ -15,8 +15,8 @@ import java.util.TreeMap;
 public class MBTreeManager {
 	DBManager dbManager;
 	PreparedStatement stmt;
-	int branchingFactor;
-	int height;
+	int branchingFactor=25;
+	int height=4;
 	String prefix="L";
 	String separator="-";
 	BufferedWriter bw=null;
@@ -59,7 +59,7 @@ public class MBTreeManager {
 			e.printStackTrace();
 		} 
 		
-		int numLeaves=(int)Math.pow(MBTCreator.branchingFactor,MBTCreator.height);
+		int numLeaves=(int)Math.pow(branchingFactor,height);
 		try {
 			PreparedStatement selStmt=dbManager.getConnection().prepareStatement("select value1 from btree where level_id=? and leaf_id=?");
 			selStmt.setInt(1, height);
@@ -219,7 +219,7 @@ public class MBTreeManager {
 		System.out.println(level_id+" "+leaf_id+"  "+sha1Hash);
 		if(level_id==0){
 			MBTCreator.rootHash=sha1Hash;
-			System.out.println(MBTCreator.rootHash);
+			//System.out.println(MBTCreator.rootHash);
 		}
 		//System.out.println(sha1Hash);
 	}

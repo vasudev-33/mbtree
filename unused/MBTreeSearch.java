@@ -24,24 +24,30 @@ public class MBTreeSearch {
 	int boundaryKeyLeftLeafId=-1;
 	int boundaryKeyRightLeafId=-1;
 	HashMap<Integer,ArrayList<Node>> levelWiseNodeList=new HashMap<Integer,ArrayList<Node>>();
-	int branchingFactor=MBTCreator.branchingFactor;
-	int height=MBTCreator.height;
+	int branchingFactor;
+	int height;
 	public static String rootHash;
+	
+	MBTreeSearch(int branchingFactor, int height){
+		this.branchingFactor=branchingFactor;
+		this.height=height;
+	}
 	
 	public static void main(String args[]){
 		String searchQuery="select ";
 		DBManager dbManager =new DBManager();
-		DBManager.openConnection();
-		Connection connection=dbManager.getConnection();
-		MBTreeSearch mbTreeSearch=new MBTreeSearch();
+		Connection connection=dbManager.openConnection();
+		//Connection connection=dbManager.getConnection();
+		//MBTreeSearch mbTreeSearch=new MBTreeSearch(branchingFactor, height);
 		//mbTreeSearch.search(connection, searchQuery);
 		dbManager.closeConnection();
 	}
 	
+	
 	public void search(Connection connection, CallableStatement callableStatement, int leftKey, int rightKey) throws IOException{
 		
 		try {
-			String searchString="call search("+leftKey+","+rightKey+","+MBTCreator.branchingFactor+","+MBTCreator.height+")";
+			String searchString="call search("+leftKey+","+rightKey+","+branchingFactor+","+height+")";
 			//long startTime=System.currentTimeMillis();
 			ResultSet rs=callableStatement.executeQuery(searchString);
 			//long endTime=System.currentTimeMillis();
@@ -119,7 +125,7 @@ public class MBTreeSearch {
 			//if(nodeList.get(0).leafId % MBTCreator.branchingFactor != 0)
 			//	startId=1;
 			//work around ends
-			for(int i=startId;i<nodeList.size();i=i+MBTCreator.branchingFactor){
+			for(int i=startId;i<nodeList.size();i=i+branchingFactor){
 				
 				String hashVal="";
 				int parentLeafId=nodeList.get(i).getLeafId()/branchingFactor;
@@ -214,7 +220,7 @@ public class MBTreeSearch {
 			
 			if(resultCount<=2){
 				System.out.println("Invalid Query");
-				MBTCreator.bw.write("Invalid Query\n");
+				
 				return null;
 			}
 			if(resultCount>0){

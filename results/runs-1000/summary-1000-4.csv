@@ -1,0 +1,5 @@
+Thread Id,Query Range,Number of Updates,Time(in ms),Updates Per Second
+3,1000,250,140493,1.7794482
+4,1000,250,158989,1.5724359
+2,1000,250,202933,1.2319337
+1,1000,250,206305,1.2117981

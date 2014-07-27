@@ -1,6 +1,7 @@
 package edu.sunysb.dbManager;
 
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -13,91 +14,120 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.TreeMap;
+
+import com.mysql.jdbc.exceptions.MySQLTransactionRollbackException;
 public class MBTreeUpdate {
 	
-	private static final int METADATA =1;
+	private final boolean UDBG = true;
+
+	private  int METADATA =1;
+
+	private  int ERROR_CODE = -3;
 	
 	int resultCount=-1;
 	int boundaryKeyCount=-1;
 	int boundaryHashCount=-1;
 	int boundaryKeyLeftLeafId=-1;
 	int boundaryKeyRightLeafId=-1;
+	
 	HashMap<Integer,ArrayList<Node>> levelWiseNodeList=new HashMap<Integer,ArrayList<Node>>();
-	int branchingFactor=MBTCreator.branchingFactor;
-	int height=MBTCreator.height;
+	int branchingFactor;
+	int height;
 	//public String rootHash;
-	public StringBuffer newHashes=new StringBuffer();
+	StringBuffer newHashes;
+	
+	MBTreeUpdate(int branchingFactor, int height){
+		this.branchingFactor=branchingFactor;
+		this.height=height;
+	}
 	
 	public static void main(String args[]){
 		
 		String searchQuery="select ";
 		DBManager dbManager =new DBManager();
-		DBManager.openConnection();
-		Connection connection=dbManager.getConnection();
-		MBTreeSearch mbTreeSearch=new MBTreeSearch();
+		Connection connection=dbManager.openConnection();
+		//Connection connection=dbManager.getConnection();
+		//MBTreeSearch mbTreeSearch=new MBTreeSearch();
 		//mbTreeSearch.search(connection, searchQuery);
 		dbManager.closeConnection();
 		
 	}
 	
 
-	public void update(Connection connection, CallableStatement callableStatement, int leftKey, int rightKey, String newVal) throws IOException{
+	public int update(BufferedWriter bw, int threadId, CallableStatement callableStatement, int leftKey, int rightKey, String newVal) throws IOException{
 		
 		try {
-			String searchString="call search("+leftKey+","+rightKey+","+MBTCreator.branchingFactor+","+MBTCreator.height+")";
+			levelWiseNodeList.clear();
+			newHashes=new StringBuffer();
+			String searchString="call search("+threadId+","+leftKey+","+rightKey+","+branchingFactor+","+height+")";
+			//String searchString="call search("+leftKey+","+rightKey+","+MBTCreator.branchingFactor+","+MBTCreator.height+")";
+			if(UDBG){
+			System.out.println(searchString);
+			}
 			ResultSet rs=callableStatement.executeQuery(searchString);
 			
 			/* calculate the old root hash */
-			ArrayList<Node> lastLevelNodeList=populateLastLevelNodeList(rs);
+			ArrayList<Node> lastLevelNodeList=populateLastLevelNodeList(bw, rs);
 			if(lastLevelNodeList==null){
-				return;
+				return -1;
 			}
 			levelWiseNodeList.put(height,lastLevelNodeList);
 			populateBoundaryHashes(rs);
 			String oldRootHash=processLevelWiseNodeList();
 			
 			/* verify the old root hash */
-			if(MBTCreator.rootHash!=null && oldRootHash!=null){
+			/*if(MBTCreator.rootHash!=null && oldRootHash!=null){
 				if(MBTCreator.rootHash.equals(oldRootHash)){
-					//System.out.println("Verified the root hashes");
+					System.out.println("Verified the root hashes");
+					
 					//MBTCreator.bw.write("Root Hashes Match\n");
 				}else{	
 					System.out.println("Mismatching root hashes");
-					MBTCreator.bw.write("Mismatching root hashes\n");
+					bw.write("Mismatching root hashes\n");
 					System.out.println("Obtained Root Hash="+ oldRootHash);
 					System.out.println("Actual Root Hash="+ MBTCreator.rootHash);		
 				}
 			}else{
-				MBTCreator.bw.write("One of the root hash is null\n");
+				bw.write("One of the root hash is null\n");
 				System.out.println("One of the root hash is null");
 				System.out.println("Obtained root hash="+ oldRootHash);
-			}
+			}*/
 			
 			/* reset the result set to point to the first row */
 			rs.beforeFirst();
 			levelWiseNodeList.clear();
 			
 			/* calculate the new root hash */
-			lastLevelNodeList=populateLastLevelNodeListWithUpdate(rs, newVal, leftKey, rightKey);
+			lastLevelNodeList=populateLastLevelNodeListWithUpdate(bw, rs, newVal, leftKey, rightKey);
 			if(lastLevelNodeList==null){
-				return;
+				return -1;
 			}
 			levelWiseNodeList.put(height,lastLevelNodeList);
 			populateBoundaryHashes(rs);
 			String newRootHash=processLevelWiseNodeList();
 			
 			/* update the old root hash with the new root hash */
-			MBTCreator.rootHash=newRootHash;
-			
+			//MBTCreator.rootHash=newRootHash;
+			if(UDBG){
+			System.out.println("New hash:"+newRootHash);
 			/* call the update procedure to update everything in the DB */
-			searchString="call btreeUpdate("+leftKey+","+rightKey+","+MBTCreator.height+","+"'"+newVal+"'"+","+"'"+newHashes+"'"+")";
+			searchString="call btreeUpdate("+leftKey+","+rightKey+","+height+","+"'"+newVal+"'"+","+"'"+newHashes+"'"+")";
 			//System.out.println("call btreeUpdate("+leftKey+","+rightKey+")");
+			//synchronized(this){
+			}
 			rs=callableStatement.executeQuery(searchString);
+			//}
 			
-		} catch (SQLException e) {
-			
-			e.printStackTrace();
+		}catch(MySQLTransactionRollbackException e){
+			return ERROR_CODE;
 		}
+		catch (SQLException e) {
+			//return ERROR_CODE;
+			e.printStackTrace();
+			//System.exit(0);
+			
+		}
+		return 0;
 	
 	}
 	
@@ -166,7 +196,7 @@ public class MBTreeUpdate {
 			//if(nodeList.get(0).leafId % MBTCreator.branchingFactor != 0)
 			//	startId=1;
 			//work around ends
-			for(int i=startId;i<nodeList.size();i=i+MBTCreator.branchingFactor){
+			for(int i=startId;i<nodeList.size();i=i+branchingFactor){
 				
 				String hashVal="";
 				int parentLeafId=nodeList.get(i).getLeafId()/branchingFactor;
@@ -212,7 +242,9 @@ public class MBTreeUpdate {
 
 	private void printList(ArrayList<Node> nodeList){
 		for(int i=0;i<nodeList.size();i++){
+			if(UDBG){
 			System.out.println(nodeList.get(i).getLeafId()+" "+nodeList.get(i).getHashVal());
+			}
 		}
 	}
 	
@@ -226,7 +258,7 @@ public class MBTreeUpdate {
 	}
 	
 	
-	private ArrayList<Node> populateLastLevelNodeList(ResultSet rs) throws IOException {
+	private ArrayList<Node> populateLastLevelNodeList(BufferedWriter bw, ResultSet rs) throws IOException {
 		// TODO Auto-generated method stub
 		
 		int rowCount;
@@ -250,6 +282,7 @@ public class MBTreeUpdate {
 			if(boundaryKeyCount>=0 && boundaryHashCount>=0){
 				resultCount=rowCount-(boundaryKeyCount+boundaryHashCount);
 			}else{
+				
 				System.out.println("negative values in boundary key and boundary hash");
 				return null;
 			}
@@ -262,8 +295,11 @@ public class MBTreeUpdate {
 			//rs.next();
 			
 			if(resultCount<=2){
+				if(UDBG){
 				System.out.println("Invalid Query");
-				MBTCreator.bw.write("Invalid Query\n");
+				}
+				
+				bw.write("Invalid Query\n");
 				return null;
 			}
 			if(resultCount>0){
@@ -312,7 +348,7 @@ public class MBTreeUpdate {
 	}
 	
 	
-	private ArrayList<Node> populateLastLevelNodeListWithUpdate(ResultSet rs, String newVal, int leftKey, int rightKey) throws IOException {
+	private ArrayList<Node> populateLastLevelNodeListWithUpdate(BufferedWriter bw, ResultSet rs, String newVal, int leftKey, int rightKey) throws IOException {
 
 		// TODO Auto-generated method stub
 		
@@ -349,7 +385,7 @@ public class MBTreeUpdate {
 			
 			if(resultCount<=2){
 				System.out.println("Invalid Query");
-				MBTCreator.bw.write("Invalid Query\n");
+				bw.write("Invalid Query\n");
 				return null;
 			}
 			if(resultCount>0){

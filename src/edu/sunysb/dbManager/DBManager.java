@@ -8,16 +8,14 @@ import java.sql.SQLException;
 
 
 public class DBManager {
-	public static Connection connection;
+	public Connection connection;
 	
 	public Connection getConnection() {
 		return connection;
 	}
 
-	static{
-		openConnection();
-	}
-	public static void openConnection(){
+	
+	public Connection openConnection(){
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
 			connection=DriverManager.getConnection(Constants.MySQLServerURL+"/"+Constants.MySQLDB,Constants.MySQLUsername,Constants.MySQLPassword);
@@ -28,6 +26,7 @@ public class DBManager {
 		
 			e.printStackTrace();
 		}
+		return connection;
 	}
 	
 	public void closeConnection(){

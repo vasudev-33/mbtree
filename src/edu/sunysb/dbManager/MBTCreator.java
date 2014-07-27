@@ -11,29 +11,35 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-public class MBTCreator {
-	public static int branchingFactor=25;
-	public static int height=4; 
-	public static String rootHash="fe46c754c9a3a11b379ec4f95ad931226b1b5a58";//"99e5b1c82c132b980c72bd9fe1ee180b0859327b";//"fc71b32e457746969cd784f33d57e01ef3e9dcd0";
-	public static int valueSize=50;
-	public static char charToFill='a';
-	public static int numKeys;
-	public static final int numRuns=10000;
-	static BufferedWriter bw;
-	static CallableStatement stmt=null;
-	static Connection connection=null;
-	int numTimes=4;
+public class MBTCreator extends Thread {
+	private final boolean UDBG = true;
+	public int branchingFactor=25;
+	public int height=4; 
+	public static String rootHash="fe9280af7e6e06040f718a11085d1b507127559c";//"99e5b1c82c132b980c72bd9fe1ee180b0859327b";//"fc71b32e457746969cd784f33d57e01ef3e9dcd0";
+	public int valueSize=50;
+	public char charToFill='c';
+	public int numKeys;
+	public int threadId;
+	public int numRuns;
+	public int range;
+	public int threadLow;
+	public int threadHigh;
+	public String newValueToUpdate;
+	//public static final int numRuns=10000;
+	BufferedWriter bw;
+	CallableStatement stmt=null;
+	Connection connection=null;
+	int totalThreads;
+	public int invalidCount;
+	//int numTimes=4;
+	public static float avgUpdatesPerSecond;
 	
-	public static void main(String args[]) throws IOException{
+	/*public static void main(String args[]) throws IOException{
 		MBTCreator mbtCreator= new MBTCreator();
-		DBManager dbManager= new DBManager();
-		
-		int numLeaves=(int) Math.pow(MBTCreator.branchingFactor,MBTCreator.height);
-		numKeys=numLeaves*(MBTCreator.branchingFactor-1);
+		int numLeaves=(int) Math.pow(mbtCreator.branchingFactor,mbtCreator.height);
+		mbtCreator.numKeys=numLeaves*(mbtCreator.branchingFactor-1);
 		System.out.println("Number of leaves="+numLeaves);
-		//bw.write("Number of leaves="+numLeaves+'\n');
-		System.out.println("Number of keys="+numKeys);
-		//bw.write("Number of keys="+numKeys+"\n\n");
+		System.out.println("Number of keys="+mbtCreator.numKeys);
 		
 //		try {
 //			File file = new File("btree.txt");
@@ -63,52 +69,97 @@ public class MBTCreator {
 //		long endTime=System.currentTimeMillis();
 //		long diff=TimeUnit.MILLISECONDS.toSeconds(endTime-startTime);
 //		System.out.println("Time for Constructing MBTree= "+diff+" seconds");
-		for(int i=10;i<=10000;i=i*10){
-			
-			FileWriter fw;
-			try {
-				fw = new FileWriter("results"+i+".txt");
-				bw=new BufferedWriter(fw);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			try {
-				DBManager.openConnection();
-				connection=dbManager.getConnection();
-				String searchString = "{call search(?,?,?,?)}";
-				stmt=connection.prepareCall(searchString);
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			long startTime=System.currentTimeMillis();
-			mbtCreator.performRunsForUpdate(numRuns,i);
-			//mbtCreator.verifyAndUpdate(655363,655371);
-			dbManager.closeConnection();
-			//test case for mbtree left boundary fix
-			//mbtCreator.search(6120001,6161691);
-			//test case for mbtree right boundary fix
-			//mbtCreator.search(6120002,6135000);
-			
-			//test case for mbtree random left boundary fix
-			//mbtCreator.search(47648849, 47668849);
-			//test case for mbtreerandom right boundary fix
-			//mbtCreator.search(47745926,47765926);
-			
-			long endTime=System.currentTimeMillis();
-			long diff = endTime-startTime;
-			System.out.println("Total time for "+numRuns+" runs with range "+i+"= "+diff+" milliseconds");
-			bw.write("Total time for "+numRuns+" runs with range "+i+" = "+diff+ " milliseconds\n");
-			bw.write("Total time for "+numRuns+" runs with range "+i+" = "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds\n");
-			bw.write("Total time for "+numRuns+" runs with range "+i+" = "+TimeUnit.MILLISECONDS.toMinutes(endTime-startTime)+" minutes\n");
+		int numThreads=0;
+		for(int i=10000;i<=10000;i=i*10){
+			int numIters=10000;
+			mbtCreator.initRuns(++numThreads, numIters, i );
+		}
+		
+	}*/
+	
+	public void run() {
+
+		DBManager dbManager= new DBManager();
+		FileWriter fw;
+		try {
+			fw = new FileWriter("results"+threadId+".txt");
+			bw=new BufferedWriter(fw);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		try {
+			//DBManager.openConnection();
+			connection=dbManager.openConnection();
+			connection.setAutoCommit(false);
+			String searchString = "{call search(?,?,?,?)}";
+			stmt=connection.prepareCall(searchString);
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		long startTime=System.currentTimeMillis();
+		
+		try {
+			performRunsForUpdate(threadId, numRuns, range, threadLow, threadHigh);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		//mbtCreator.update(755363,756545,"ssss");
+		//mbtCreator.update(755363,756545,"jjsssj");
+		//mbtCreator.update(855363,855567,"hhhhh");
+		dbManager.closeConnection();
+		//test case for mbtree left boundary fix
+		//mbtCreator.search(6120001,6161691);
+		//test case for mbtree right boundary fix
+		//mbtCreator.search(6120002,6135000);
+		
+		//test case for mbtree random left boundary fix
+		//mbtCreator.search(47648849, 47668849);
+		//test case for mbtreerandom right boundary fix
+		//mbtCreator.search(47745926,47765926);
+		
+		long endTime=System.currentTimeMillis();
+		long diff = endTime-startTime;
+		//System.out.println("Total time for "+numRuns+" runs with range "+range+"= "+diff+" milliseconds");
+		try {
+			bw.write("Total time for "+numRuns+" runs with range "+range+" = "+diff+ " milliseconds\n");
+			bw.write("Total time for "+numRuns+" runs with range "+range+" = "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds\n");
+			bw.write("Total time for "+numRuns+" runs with range "+range+" = "+TimeUnit.MILLISECONDS.toMinutes(endTime-startTime)+" minutes\n");
 			bw.close();
+			float numUpdatesPerSecond=((float)numRuns/(float)diff)*1000;
+			System.out.println("Thread "+threadId+" completed with "+numRuns+" runs.Num updates="+numUpdatesPerSecond+".Invalid Count="+invalidCount);
+			logSummaryResults(threadId, numRuns, range,diff, totalThreads,numUpdatesPerSecond);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	
+		
+	}
+	
+	public synchronized void logSummaryResults(int threadId, int numRuns, int range, long diff, int totalThreads, float numUpdatesPerSecond){
+		
+		avgUpdatesPerSecond+=numUpdatesPerSecond;
+		BufferedWriter cbw;
+		try {
+			cbw = new BufferedWriter(new FileWriter("summary-"+range+"-"+totalThreads+".csv",true));
+			cbw.write(threadId+","+range+","+numRuns+","+diff+","+numUpdatesPerSecond+"\n");
+			cbw.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		
 	}
 	
+	/*
 	public void performRunsForSearch(int numRuns, int range) throws IOException{
+		if(UDBG){
 		System.out.println(range);
+		}
 		//int leftKey[]={3757, 123656, 8934678, 3789321, 234121, 7780023 };
 		//int rightKey[]={4969, 123755, 8935677, 3799320, 334120, 9780022};
 		
@@ -131,9 +182,10 @@ public class MBTCreator {
 			hashSet.add(rightKey);
 			Calendar cal = Calendar.getInstance();
 			long startTime=System.currentTimeMillis();
-			
-			System.out.println("Iteration "+i+": "+"call search("+leftKey+','+rightKey+','+MBTCreator.branchingFactor+','+MBTCreator.height+')');
-			bw.write("Iteration "+i+": "+"call search("+leftKey+','+rightKey+','+MBTCreator.branchingFactor+','+MBTCreator.height+')'+"\n");
+			if(UDBG){
+			System.out.println("Iteration "+i+": "+"call search("+leftKey+','+rightKey+','+branchingFactor+','+height+')');
+			}
+			bw.write("Iteration "+i+": "+"call search("+leftKey+','+rightKey+','+branchingFactor+','+height+')'+"\n");
 			
 			search(leftKey,rightKey);
 			long endTime=System.currentTimeMillis();
@@ -141,58 +193,71 @@ public class MBTCreator {
 			
 			//System.out.println("Time for Search + Reconstruction of Root Hash= "+diff+" milliseconds");
 			//bw.write("Time for Search + Reconstruction of Root Hash= "+diff+" milliseconds\n");
-			
+			if(UDBG){
 			System.out.println();
+			}
 			//bw.write("\n");
 		}
-	}
+	}*/
 	
-	public void performRunsForUpdate(int numRuns, int range) throws IOException{
-		//System.out.println(range);
-		//int leftKey[]={3757, 123656, 8934678, 3789321, 234121, 7780023 };
-		//int rightKey[]={4969, 123755, 8935677, 3799320, 334120, 9780022};
+	public void performRunsForUpdate(int threadId, int numRuns, int range, int threadLow, int threadHigh) throws IOException{
+		
 		
 		Random rand=new Random();
-		int low=2;
+		//int low=2;
+		//int firstKeyHigh=numKeys-2;
+		//int secondKeyHigh=numKeys-1;
+		
 		//int low=4;
 		//int firstKeyHigh=72983739;
 		//int secondKeyHigh=72983754;
-		int firstKeyHigh=numKeys-2;
-		int secondKeyHigh=numKeys-1;
+		
+		int low=threadLow;
+		int firstKeyHigh=threadHigh;
+		int secondKeyHigh=threadHigh;
+		
+		
 		int leftKey;
 		int rightKey;
 		HashSet hashSet=new HashSet();
 		for(int i=0;i<numRuns;i++){
 			do{
+				
 				leftKey=randInt(low,firstKeyHigh);
 				rightKey=randInt(leftKey+1,secondKeyHigh);
-			}while((rightKey-leftKey)>range);//|| hashSet.contains(leftKey) || hashSet.contains(rightKey));
+				//if((rightKey-leftKey)>range || leftKey==-1 || rightKey==-1)
+					//System.out.println("Regenerating "+leftKey+" "+rightKey);
+			}while((rightKey-leftKey)>range || leftKey==-1 || rightKey==-1);//|| hashSet.contains(leftKey) || hashSet.contains(rightKey));
 			hashSet.add(leftKey);
 			hashSet.add(rightKey);
 			Calendar cal = Calendar.getInstance();
 			long startTime=System.currentTimeMillis();
+			if(UDBG){
+			System.out.println("Iteration "+i+": "+"call btreeUpdate("+leftKey+','+rightKey+','+branchingFactor+','+height+')');
+			}
+			bw.write("Iteration "+i+": "+"call btreeUpdate("+leftKey+','+rightKey+','+branchingFactor+','+height+')'+"\n");
 			
-			System.out.println("Iteration "+i+": "+"call btreeUpdate("+leftKey+','+rightKey+','+MBTCreator.branchingFactor+','+MBTCreator.height+')');
-			bw.write("Iteration "+i+": "+"call btreeUpdate("+leftKey+','+rightKey+','+MBTCreator.branchingFactor+','+MBTCreator.height+')'+"\n");
-			
-			verifyAndUpdate(leftKey, rightKey);
+			update(bw, threadId, leftKey, rightKey, newValueToUpdate);
+			//update(bw, threadId, 4699133, 4699377, "bbbbbbbbb");
+			try {
+				//synchronized(this){
+				connection.commit();
+				//}
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			long endTime=System.currentTimeMillis();
 			long diff=endTime-startTime;//TimeUnit.MILLISECONDS.toSeconds(endTime-startTime);
 			
 			//System.out.println("Time for Search + Reconstruction of Root Hash= "+diff+" milliseconds");
 			//bw.write("Time for Search + Reconstruction of Root Hash= "+diff+" milliseconds\n");
 			
-			System.out.println();
+			//System.out.println();
 			//bw.write("\n");
 		}
 	}
 	
-	public void verifyAndUpdate(int leftKey,int rightKey) throws IOException{
-		//search(leftKey, rightKey);
-		update(leftKey, rightKey, "bbbbbbbbb");
-		
-		
-	}
 	
 	public int randInt(int min, int max) {
 
@@ -201,14 +266,23 @@ public class MBTCreator {
 
 	    // nextInt is normally exclusive of the top value,
 	    // so add 1 to make it inclusive
-	    int randomNum = rand.nextInt((max - min) + 1) + min;
-
+	    int randomNum=-1;
+	    try{
+	    randomNum = rand.nextInt((max - min) + 1) + min;
+	    }catch(IllegalArgumentException e){
+	    	//e.printStackTrace();
+	    	if(UDBG){
+	    	System.out.println(min+" "+max);
+	    	}
+	    	return randomNum;
+	    }
 	    return randomNum;
 	}
 	
+	/*
 	public void search(int leftKey,int rightKey) throws IOException{
 		
-		MBTreeSearch mbTreeSearch=new MBTreeSearch();
+		MBTreeSearch mbTreeSearch=new MBTreeSearch(branchingFactor,height);
 		mbTreeSearch.search(connection, stmt, leftKey, rightKey);
 		
 		if(MBTCreator.rootHash!=null && MBTreeSearch.rootHash!=null){
@@ -229,14 +303,47 @@ public class MBTCreator {
 		
 		
 		
-	}
+	}*/
 	
-public void update(int leftKey,int rightKey, String newVal) throws IOException{
+public void update(BufferedWriter bw, int threadId, int leftKey,int rightKey, String newVal) throws IOException{
 		
-		MBTreeUpdate mbTreeUpdate=new MBTreeUpdate();
-		mbTreeUpdate.update(connection, stmt, leftKey, rightKey, newVal);
 		
+		int retVal;
+		do{
+			if(UDBG){
+			System.out.println("Trying for "+leftKey+" "+rightKey);
+			}
+			MBTreeUpdate mbTreeUpdate=new MBTreeUpdate(branchingFactor, height);
+			retVal=mbTreeUpdate.update(bw, threadId, stmt, leftKey, rightKey, newVal);
+			if(retVal==-1){
+				invalidCount++;
+			}
+		}while(retVal==-3);
+		
+	
 		
 	}
+
+public static void main(String args[]) throws IOException, SQLException{
+	MBTCreator mbtCreator=new MBTCreator();
+	
+	int leftKey=9613914;
+	int rightKey=9616842;
+	int threadId=1;
+	FileWriter fw = new FileWriter("results");
+	mbtCreator.bw=new BufferedWriter(fw);
+	
+	DBManager dbManager=new DBManager();
+	mbtCreator.connection=dbManager.openConnection();
+	//mbtCreator.connection=dbManager.getConnection();
+	mbtCreator.connection.setAutoCommit(false);
+	String searchString = "{call search(?,?,?,?)}";
+	mbtCreator.stmt=mbtCreator.connection.prepareCall(searchString);
+	int retVal=-3;
+	do{
+		MBTreeUpdate mbTreeUpdate=new MBTreeUpdate(mbtCreator.branchingFactor, mbtCreator.height);
+		retVal=mbTreeUpdate.update(mbtCreator.bw, 1, mbtCreator.stmt, 4890863,4891528, "bbbbbb");
+	}while(true);
+}
 
 }
