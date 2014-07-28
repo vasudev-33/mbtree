@@ -12,7 +12,8 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 public class MBTCreator extends Thread {
-	private final boolean UDBG = true;
+	private final int NUM_RETRY = 10;
+	private final boolean UDBG = false;
 	public int branchingFactor=25;
 	public int height=4; 
 	public static String rootHash="fe9280af7e6e06040f718a11085d1b507127559c";//"99e5b1c82c132b980c72bd9fe1ee180b0859327b";//"fc71b32e457746969cd784f33d57e01ef3e9dcd0";
@@ -82,8 +83,10 @@ public class MBTCreator extends Thread {
 		DBManager dbManager= new DBManager();
 		FileWriter fw;
 		try {
-			fw = new FileWriter("results"+threadId+".txt");
-			bw=new BufferedWriter(fw);
+			if(UDBG){
+				fw = new FileWriter("results"+threadId+".txt");
+				bw=new BufferedWriter(fw);
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -124,13 +127,17 @@ public class MBTCreator extends Thread {
 		long diff = endTime-startTime;
 		//System.out.println("Total time for "+numRuns+" runs with range "+range+"= "+diff+" milliseconds");
 		try {
+			if(UDBG){
 			bw.write("Total time for "+numRuns+" runs with range "+range+" = "+diff+ " milliseconds\n");
 			bw.write("Total time for "+numRuns+" runs with range "+range+" = "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds\n");
 			bw.write("Total time for "+numRuns+" runs with range "+range+" = "+TimeUnit.MILLISECONDS.toMinutes(endTime-startTime)+" minutes\n");
 			bw.close();
-			float numUpdatesPerSecond=((float)numRuns/(float)diff)*1000;
-			System.out.println("Thread "+threadId+" completed with "+numRuns+" runs.Num updates="+numUpdatesPerSecond+".Invalid Count="+invalidCount);
-			logSummaryResults(threadId, numRuns, range,diff, totalThreads,numUpdatesPerSecond);
+			System.out.println("Thread "+threadId+" completed with "+numRuns+" runs. Time Taken= "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds. Invalid Count="+invalidCount);
+			}
+			
+			//float numUpdatesPerSecond=((float)numRuns/(float)diff)*1000;
+			
+			//logSummaryResults(threadId, numRuns, range,diff, totalThreads,numUpdatesPerSecond);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -234,8 +241,9 @@ public class MBTCreator extends Thread {
 			long startTime=System.currentTimeMillis();
 			if(UDBG){
 			System.out.println("Iteration "+i+": "+"call btreeUpdate("+leftKey+','+rightKey+','+branchingFactor+','+height+')');
-			}
 			bw.write("Iteration "+i+": "+"call btreeUpdate("+leftKey+','+rightKey+','+branchingFactor+','+height+')'+"\n");
+			}
+			
 			
 			update(bw, threadId, leftKey, rightKey, newValueToUpdate);
 			//update(bw, threadId, 4699133, 4699377, "bbbbbbbbb");
@@ -307,17 +315,20 @@ public class MBTCreator extends Thread {
 	
 public void update(BufferedWriter bw, int threadId, int leftKey,int rightKey, String newVal) throws IOException{
 		
-		
+		int count=0;
 		int retVal;
 		do{
+			if(count==NUM_RETRY)
+				break;
 			if(UDBG){
 			System.out.println("Trying for "+leftKey+" "+rightKey);
 			}
 			MBTreeUpdate mbTreeUpdate=new MBTreeUpdate(branchingFactor, height);
 			retVal=mbTreeUpdate.update(bw, threadId, stmt, leftKey, rightKey, newVal);
-			if(retVal==-1){
+			if(retVal==-1)
 				invalidCount++;
-			}
+			count++;
+			
 		}while(retVal==-3);
 		
 	

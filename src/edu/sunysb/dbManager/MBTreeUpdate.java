@@ -18,7 +18,7 @@ import java.util.TreeMap;
 import com.mysql.jdbc.exceptions.MySQLTransactionRollbackException;
 public class MBTreeUpdate {
 	
-	private final boolean UDBG = true;
+	private final boolean UDBG = false;
 
 	private  int METADATA =1;
 
@@ -110,13 +110,11 @@ public class MBTreeUpdate {
 			//MBTCreator.rootHash=newRootHash;
 			if(UDBG){
 			System.out.println("New hash:"+newRootHash);
+			}
 			/* call the update procedure to update everything in the DB */
 			searchString="call btreeUpdate("+leftKey+","+rightKey+","+height+","+"'"+newVal+"'"+","+"'"+newHashes+"'"+")";
-			//System.out.println("call btreeUpdate("+leftKey+","+rightKey+")");
-			//synchronized(this){
-			}
 			rs=callableStatement.executeQuery(searchString);
-			//}
+			
 			
 		}catch(MySQLTransactionRollbackException e){
 			return ERROR_CODE;
@@ -297,9 +295,10 @@ public class MBTreeUpdate {
 			if(resultCount<=2){
 				if(UDBG){
 				System.out.println("Invalid Query");
+				bw.write("Invalid Query\n");
 				}
 				
-				bw.write("Invalid Query\n");
+				
 				return null;
 			}
 			if(resultCount>0){
@@ -384,8 +383,10 @@ public class MBTreeUpdate {
 			//rs.next();
 			
 			if(resultCount<=2){
-				System.out.println("Invalid Query");
-				bw.write("Invalid Query\n");
+				if(UDBG){
+					System.out.println("Invalid Query");
+					bw.write("Invalid Query\n");
+				}
 				return null;
 			}
 			if(resultCount>0){

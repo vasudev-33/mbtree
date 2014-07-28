@@ -3,9 +3,11 @@ package edu.sunysb.dbManager;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
 	
+	public final boolean UDBG=false;
 	public void driver(int totalThreads, int range, int totalIterations){
 		
 		int totalKeys=70000000;
@@ -25,9 +27,11 @@ public class Main {
 		//System.out.println("Number of leaves="+numLeaves);
 		//System.out.println("Number of keys="+mbtCreator.numKeys);
 		try{
-		FileWriter fw = new FileWriter("summary-"+range+"-"+totalThreads+".csv");
-		fw.write("Thread Id"+","+"Query Range"+","+"Number of Updates"+","+"Time(in ms)"+","+"Updates Per Second"+"\n");
-		fw.close();
+			if(UDBG){
+				FileWriter fw = new FileWriter("summary-"+range+"-"+totalThreads+".csv");
+				fw.write("Thread Id"+","+"Query Range"+","+"Number of Updates"+","+"Time(in ms)"+","+"Updates Per Second"+"\n");
+				fw.close();
+			}
 		}catch(IOException e){
 			e.printStackTrace();
 		}
@@ -67,12 +71,15 @@ public class Main {
 		
 		//System.out.println("Everyone is done");
 		//System.out.println(MBTCreator.avgUpdatesPerSecond);
-		MBTCreator.avgUpdatesPerSecond=MBTCreator.avgUpdatesPerSecond/(float)totalThreads;
+		
 		try{
-		FileWriter fw = new FileWriter("summary-"+range+".csv",true);
-		BufferedWriter sbw=new BufferedWriter(fw);
-		sbw.write(totalThreads+","+MBTCreator.avgUpdatesPerSecond+"\n");
-		sbw.close();
+			if(UDBG){
+			MBTCreator.avgUpdatesPerSecond=MBTCreator.avgUpdatesPerSecond/(float)totalThreads;
+			FileWriter fw = new FileWriter("summary-"+range+".csv",true);
+			BufferedWriter sbw=new BufferedWriter(fw);
+			sbw.write(totalThreads+","+MBTCreator.avgUpdatesPerSecond+"\n");
+			sbw.close();
+			}
 		}catch(IOException e){
 			e.printStackTrace();
 		}
@@ -88,16 +95,22 @@ public class Main {
 	
 	public static void main(String args[]){
 		Main main=new Main();
-		int startThreads=1;
-		int maxThreads=64;
-		int totalIterations=1024;
-		int startRange=10;
-		int endRange=100000;
+		int startThreads=2;
+		int maxThreads=8;
+		int totalIterations=512;
+		int startRange=100;
+		int endRange=100;
 		
 		for(int j=startRange;j<=endRange;j=j*10){
 			for(int i=startThreads;i<=maxThreads;i=i*2){
-				System.out.println("Performing a run with "+i+" threads and range "+j);
+				System.out.println("Performing a run with "+i+" threads, range: "+j+" iterations: "+totalIterations);
+				long startTime=System.currentTimeMillis();
 				main.driver(i,j,totalIterations);
+				long endTime=System.currentTimeMillis();
+				long diff = endTime-startTime;
+				float numUpdatesPerSecond=((float)totalIterations/(float)diff)*1000;
+				System.out.println("Completed a run with "+i+" threads. Time Taken= "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds. "+"Num updates= "+numUpdatesPerSecond);
+				System.out.println();
 			}
 		}
 	}
