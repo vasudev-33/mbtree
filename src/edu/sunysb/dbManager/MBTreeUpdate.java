@@ -55,7 +55,9 @@ public class MBTreeUpdate {
 	}
 	
 
-	public int update(BufferedWriter bw, int threadId, CallableStatement callableStatement, int leftKey, int rightKey, String newVal, Statement rootHashStmt) throws IOException{
+	public int update(BufferedWriter bw, int threadId, CallableStatement callableStatement, 
+			int leftKey, int rightKey, String newVal, 
+			Statement rootHashStmt, int runType) throws IOException{
 		
 		try {
 			levelWiseNodeList.clear();
@@ -76,56 +78,42 @@ public class MBTreeUpdate {
 			populateBoundaryHashes(rs);
 			String oldRootHash=processLevelWiseNodeList();
 			
-			/* verify the old root hash */
-			ResultSet rootHashRs=rootHashStmt.executeQuery("select hash_val from mbtree where level_id=0 and leaf_id=0");
-			while(rootHashRs.next()){
-				String actualRootHash=rootHashRs.getString(1);
-				if(actualRootHash.equals(oldRootHash)){
-					System.out.println("Verified");
-					
-				}else{
-					System.out.println("Verification Failed");
+			/* only id runType is search with verification or update with verification, verify hashes */
+			if(runType==2 || runType==4){
+				/* verify the old root hash */
+				ResultSet rootHashRs=rootHashStmt.executeQuery("select hash_val from mbtree where level_id=0 and leaf_id=0");
+				while(rootHashRs.next()){
+					String actualRootHash=rootHashRs.getString(1);
+					if(!actualRootHash.equals(oldRootHash)){
+						System.out.println("Mismatching Root Hashes");;
+					}
 				}
 			}
-			/*if(MBTCreator.rootHash!=null && oldRootHash!=null){
-				if(MBTCreator.rootHash.equals(oldRootHash)){
-					System.out.println("Verified the root hashes");
-					
-					//MBTCreator.bw.write("Root Hashes Match\n");
-				}else{	
-					System.out.println("Mismatching root hashes");
-					bw.write("Mismatching root hashes\n");
-					System.out.println("Obtained Root Hash="+ oldRootHash);
-					System.out.println("Actual Root Hash="+ MBTCreator.rootHash);		
+			
+			/* only if runType is update with verification or without verification, then update the hashes */
+			if(runType==3 || runType==4){
+				/* reset the result set to point to the first row */
+				rs.beforeFirst();
+				levelWiseNodeList.clear();
+				
+				/* calculate the new root hash */
+				lastLevelNodeList=populateLastLevelNodeListWithUpdate(bw, rs, newVal, leftKey, rightKey);
+				if(lastLevelNodeList==null){
+					return -1;
 				}
-			}else{
-				bw.write("One of the root hash is null\n");
-				System.out.println("One of the root hash is null");
-				System.out.println("Obtained root hash="+ oldRootHash);
-			}*/
-			
-			/* reset the result set to point to the first row */
-			rs.beforeFirst();
-			levelWiseNodeList.clear();
-			
-			/* calculate the new root hash */
-			lastLevelNodeList=populateLastLevelNodeListWithUpdate(bw, rs, newVal, leftKey, rightKey);
-			if(lastLevelNodeList==null){
-				return -1;
+				levelWiseNodeList.put(height,lastLevelNodeList);
+				populateBoundaryHashes(rs);
+				String newRootHash=processLevelWiseNodeList();
+				
+				/* update the old root hash with the new root hash */
+				//MBTCreator.rootHash=newRootHash;
+				if(UDBG){
+				System.out.println("New hash:"+newRootHash);
+				}
+				/* call the update procedure to update everything in the DB */
+				searchString="call btreeUpdate("+leftKey+","+rightKey+","+height+","+"'"+newVal+"'"+","+"'"+newHashes+"'"+")";
+				rs=callableStatement.executeQuery(searchString);
 			}
-			levelWiseNodeList.put(height,lastLevelNodeList);
-			populateBoundaryHashes(rs);
-			String newRootHash=processLevelWiseNodeList();
-			
-			/* update the old root hash with the new root hash */
-			//MBTCreator.rootHash=newRootHash;
-			if(UDBG){
-			System.out.println("New hash:"+newRootHash);
-			}
-			/* call the update procedure to update everything in the DB */
-			searchString="call btreeUpdate("+leftKey+","+rightKey+","+height+","+"'"+newVal+"'"+","+"'"+newHashes+"'"+")";
-			rs=callableStatement.executeQuery(searchString);
-			
 			
 		}catch(MySQLTransactionRollbackException e){
 			return ERROR_CODE;

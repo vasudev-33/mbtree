@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
 	
 	public final boolean UDBG=false;
-	public void driver(int totalThreads, int range, int totalIterations){
+	public void driver(int totalThreads, int range, int totalIterations, int runType){
 		
 		int totalKeys=70000000;
 		//int totalThreads=numThreads;
@@ -49,6 +49,7 @@ public class Main {
 			mbtCreator.newValueToUpdate=newValForUpdate;
 			mbtCreator.threadLow=low;
 			mbtCreator.totalThreads=totalThreads;
+			mbtCreator.runType=runType;
 			high=low+threadShare-1;
 			mbtCreator.threadHigh=high;
 			low=high+1;
@@ -97,20 +98,48 @@ public class Main {
 		Main main=new Main();
 		int startThreads=1;
 		int maxThreads=32;
-		int totalIterations=32;
+		int totalIterations=512;
 		int startRange=10;
-		int endRange=10;
-		
+		int endRange=100;
+		int runType=Integer.parseInt(args[0]);
+
 		for(int j=startRange;j<=endRange;j=j*10){
+			
+			FileWriter fw;
+			BufferedWriter bw=null;
+			try {
+				fw = new FileWriter("type"+runType+"-range"+j+".csv");
+				bw = new BufferedWriter(fw);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
 			for(int i=startThreads;i<=maxThreads;i=i*2){
 				System.out.println("Performing a run with "+i+" threads, range: "+j+" iterations: "+totalIterations);
+				
 				long startTime=System.currentTimeMillis();
-				main.driver(i,j,totalIterations);
+				main.driver(i,j,totalIterations,runType);
 				long endTime=System.currentTimeMillis();
 				long diff = endTime-startTime;
 				float numUpdatesPerSecond=((float)totalIterations/(float)diff)*1000;
 				System.out.println("Completed a run with "+i+" threads. Time Taken= "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds. "+"Num updates= "+numUpdatesPerSecond+" per second.");
+				
+				try {
+					bw.write(i+","+numUpdatesPerSecond);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
 				System.out.println();
+			}
+			
+			try {
+				bw.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}

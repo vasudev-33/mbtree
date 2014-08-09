@@ -26,6 +26,7 @@ public class MBTCreator extends Thread {
 	public int range;
 	public int threadLow;
 	public int threadHigh;
+	public int runType;
 	public String newValueToUpdate;
 	//public static final int numRuns=10000;
 	BufferedWriter bw;
@@ -332,7 +333,7 @@ public void update(BufferedWriter bw, int threadId, int leftKey,int rightKey, St
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			retVal=mbTreeUpdate.update(bw, threadId, stmt, leftKey, rightKey, newVal, rootHashStmt);
+			retVal=mbTreeUpdate.update(bw, threadId, stmt, leftKey, rightKey, newVal, rootHashStmt, runType);
 			if(retVal==-1)
 				invalidCount++;
 			count++;
