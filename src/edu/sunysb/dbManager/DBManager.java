@@ -27,6 +27,7 @@ public class DBManager {
 			e.printStackTrace();
 		}
 		return connection;
+		
 	}
 	
 	public void closeConnection(){

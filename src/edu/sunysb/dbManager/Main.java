@@ -95,11 +95,11 @@ public class Main {
 	
 	public static void main(String args[]){
 		Main main=new Main();
-		int startThreads=2;
-		int maxThreads=8;
-		int totalIterations=512;
-		int startRange=100;
-		int endRange=100;
+		int startThreads=1;
+		int maxThreads=32;
+		int totalIterations=32;
+		int startRange=10;
+		int endRange=10;
 		
 		for(int j=startRange;j<=endRange;j=j*10){
 			for(int i=startThreads;i<=maxThreads;i=i*2){
@@ -109,7 +109,7 @@ public class Main {
 				long endTime=System.currentTimeMillis();
 				long diff = endTime-startTime;
 				float numUpdatesPerSecond=((float)totalIterations/(float)diff)*1000;
-				System.out.println("Completed a run with "+i+" threads. Time Taken= "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds. "+"Num updates= "+numUpdatesPerSecond);
+				System.out.println("Completed a run with "+i+" threads. Time Taken= "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds. "+"Num updates= "+numUpdatesPerSecond+" per second.");
 				System.out.println();
 			}
 		}
