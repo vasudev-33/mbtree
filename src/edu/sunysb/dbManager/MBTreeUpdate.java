@@ -9,6 +9,7 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,7 +55,7 @@ public class MBTreeUpdate {
 	}
 	
 
-	public int update(BufferedWriter bw, int threadId, CallableStatement callableStatement, int leftKey, int rightKey, String newVal) throws IOException{
+	public int update(BufferedWriter bw, int threadId, CallableStatement callableStatement, int leftKey, int rightKey, String newVal, Statement rootHashStmt) throws IOException{
 		
 		try {
 			levelWiseNodeList.clear();
@@ -76,6 +77,16 @@ public class MBTreeUpdate {
 			String oldRootHash=processLevelWiseNodeList();
 			
 			/* verify the old root hash */
+			ResultSet rootHashRs=rootHashStmt.executeQuery("select hash_val from mbtree where level_id=0 and leaf_id=0");
+			while(rootHashRs.next()){
+				String actualRootHash=rootHashRs.getString(1);
+				if(actualRootHash.equals(oldRootHash)){
+					System.out.println("Verified");
+					
+				}else{
+					System.out.println("Verification Failed");
+				}
+			}
 			/*if(MBTCreator.rootHash!=null && oldRootHash!=null){
 				if(MBTCreator.rootHash.equals(oldRootHash)){
 					System.out.println("Verified the root hashes");

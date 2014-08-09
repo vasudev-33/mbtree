@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Random;
@@ -29,6 +30,7 @@ public class MBTCreator extends Thread {
 	//public static final int numRuns=10000;
 	BufferedWriter bw;
 	CallableStatement stmt=null;
+	Statement rootHashStmt=null;
 	Connection connection=null;
 	int totalThreads;
 	public int invalidCount;
@@ -324,7 +326,13 @@ public void update(BufferedWriter bw, int threadId, int leftKey,int rightKey, St
 			System.out.println("Trying for "+leftKey+" "+rightKey);
 			}
 			MBTreeUpdate mbTreeUpdate=new MBTreeUpdate(branchingFactor, height);
-			retVal=mbTreeUpdate.update(bw, threadId, stmt, leftKey, rightKey, newVal);
+			try {
+				rootHashStmt=connection.createStatement();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			retVal=mbTreeUpdate.update(bw, threadId, stmt, leftKey, rightKey, newVal, rootHashStmt);
 			if(retVal==-1)
 				invalidCount++;
 			count++;
@@ -353,7 +361,7 @@ public static void main(String args[]) throws IOException, SQLException{
 	int retVal=-3;
 	do{
 		MBTreeUpdate mbTreeUpdate=new MBTreeUpdate(mbtCreator.branchingFactor, mbtCreator.height);
-		retVal=mbTreeUpdate.update(mbtCreator.bw, 1, mbtCreator.stmt, 4890863,4891528, "bbbbbb");
+		//retVal=mbTreeUpdate.update(mbtCreator.bw, 1, mbtCreator.stmt, 4890863,4891528, "bbbbbb");
 	}while(true);
 }
 
