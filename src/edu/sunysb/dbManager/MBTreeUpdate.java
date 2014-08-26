@@ -60,6 +60,39 @@ public class MBTreeUpdate {
 			Statement rootHashStmt, int runType) throws IOException{
 		
 		try {
+			
+			/* if it is simple Search call the procedure that does not collect hashes */
+			if(runType==1){
+				String simpleSearchString="call simpleSearch("+threadId+","+leftKey+","+rightKey+","+branchingFactor+","+height+")";
+				//String searchString="call search("+leftKey+","+rightKey+","+MBTCreator.branchingFactor+","+MBTCreator.height+")";
+				if(UDBG){
+				System.out.println(simpleSearchString);
+				}
+				ResultSet rs=callableStatement.executeQuery(simpleSearchString);
+				/*
+				System.out.println(leftKey+" "+rightKey);
+				while(rs.next()){
+					String resultSet=rs.getString(1);
+					System.out.println(resultSet);
+				}*/
+				return 0;
+			}
+			
+			if(runType==3){
+				levelWiseNodeList.clear();
+				newHashes=new StringBuffer();
+				String simpleSearchString="call simpleSearch("+threadId+","+leftKey+","+rightKey+","+branchingFactor+","+height+")";
+				//String searchString="call search("+leftKey+","+rightKey+","+MBTCreator.branchingFactor+","+MBTCreator.height+")";
+				if(UDBG){
+				System.out.println(simpleSearchString);
+				}
+				ResultSet rs=callableStatement.executeQuery(simpleSearchString);
+				String updateQuery="update btree set value1=CONCAT(key_id,':',"+"'"+newVal+"'"+") where key_id>="+leftKey+" and key_id<="+rightKey+" and level_id="+height;
+				//System.out.println(updateQuery);
+				int success=rootHashStmt.executeUpdate(updateQuery);
+				return success;
+			}
+			
 			levelWiseNodeList.clear();
 			newHashes=new StringBuffer();
 			String searchString="call search("+threadId+","+leftKey+","+rightKey+","+branchingFactor+","+height+")";
@@ -68,6 +101,7 @@ public class MBTreeUpdate {
 			System.out.println(searchString);
 			}
 			ResultSet rs=callableStatement.executeQuery(searchString);
+			
 			
 			/* calculate the old root hash */
 			ArrayList<Node> lastLevelNodeList=populateLastLevelNodeList(bw, rs);
@@ -78,19 +112,20 @@ public class MBTreeUpdate {
 			populateBoundaryHashes(rs);
 			String oldRootHash=processLevelWiseNodeList();
 			
-			/* only id runType is search with verification or update with verification, verify hashes */
+			/* only if runType is search with verification or update with verification, verify hashes */
 			if(runType==2 || runType==4){
 				/* verify the old root hash */
 				ResultSet rootHashRs=rootHashStmt.executeQuery("select hash_val from mbtree where level_id=0 and leaf_id=0");
 				while(rootHashRs.next()){
 					String actualRootHash=rootHashRs.getString(1);
 					if(!actualRootHash.equals(oldRootHash)){
-						System.out.println("Mismatching Root Hashes");;
+						//System.out.println("Mismatching Root Hashes");;
 					}
 				}
 			}
 			
 			/* only if runType is update with verification or without verification, then update the hashes */
+			
 			if(runType==3 || runType==4){
 				/* reset the result set to point to the first row */
 				rs.beforeFirst();
@@ -178,6 +213,8 @@ public class MBTreeUpdate {
 		}
 		return levelWiseNodeList.get(0).get(0).getHashVal();
 	}
+	
+	
 
 	private void processLevelNodes(int levelId, ArrayList<Node> nodeList) {
 		//System.out.println("Processing level "+levelId);
@@ -221,13 +258,15 @@ public class MBTreeUpdate {
 						parentNodeList.remove(hasNodeWithLeaf);
 					}
 					parentNodeList.add(node);
-					newHashes.append((levelId-1)+","+parentLeafId+','+hashVal+',');
+					//if(levelId!=2)
+						newHashes.append((levelId-1)+","+parentLeafId+','+hashVal+',');
 					levelWiseNodeList.put(levelId-1, parentNodeList);
 					
 				}else{
 					ArrayList<Node> parentNodeList=new ArrayList<Node>();
 					parentNodeList.add(node);
-					newHashes.append((levelId-1)+","+parentLeafId+','+hashVal+',');
+					//if(levelId!=2)
+						newHashes.append((levelId-1)+","+parentLeafId+','+hashVal+',');
 					levelWiseNodeList.put(levelId-1, parentNodeList);
 				}
 				
@@ -385,7 +424,9 @@ public class MBTreeUpdate {
 				if(UDBG){
 					System.out.println("Invalid Query");
 					bw.write("Invalid Query\n");
+					
 				}
+				
 				return null;
 			}
 			if(resultCount>0){

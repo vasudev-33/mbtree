@@ -3,14 +3,41 @@ package edu.sunysb.dbManager;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
 	
 	public final boolean UDBG=false;
-	public void driver(int totalThreads, int range, int totalIterations, int runType){
+	int leftElements[];
+	int rightElements[];
+	
+	public int randInt(int min, int max) {
+
+	    // Usually this can be a field rather than a method variable
+	    Random rand = new Random();
+
+	    // nextInt is normally exclusive of the top value,
+	    // so add 1 to make it inclusive
+	    int randomNum=-1;
+	    try{
+	    randomNum = rand.nextInt((max - min) + 1) + min;
+	    }catch(IllegalArgumentException e){
+	    	//e.printStackTrace();
+	    	if(UDBG){
+	    	System.out.println(min+" "+max);
+	    	}
+	    	return randomNum;
+	    }
+	    return randomNum;
+	}
+	
+	
+	/* this functions returns the randomGenerationTime for run which is to be subtracted from total time */
+	public long driver(int totalThreads, int range, int totalIterations, int runType){
 		
-		int totalKeys=70000000;
+		int totalKeys=72983762;
+		
 		//int totalThreads=numThreads;
 		//int numThreads=0;
 		//int totalIterations=1000;
@@ -35,12 +62,18 @@ public class Main {
 		}catch(IOException e){
 			e.printStackTrace();
 		}
+		
 		//Main main=new Main();
 		String newValForUpdate=fill(newValLength, 'v');
 		MBTCreator[] mbtThreads=new MBTCreator[totalThreads];
-		//for(int i=100;i<=100000;i=i*10){
+		
+		int threadStartIndex=0;
 		for(int i=0;i<totalThreads;i++){
-			MBTCreator mbtCreator= new MBTCreator();
+			
+			int[] clonedLeft=leftElements.clone();
+			int[] clonedRight=rightElements.clone();
+			
+			MBTCreator mbtCreator= new MBTCreator();//clonedLeft,clonedRight);
 			int numLeaves=(int) Math.pow(mbtCreator.branchingFactor,mbtCreator.height);
 			mbtCreator.numKeys=numLeaves*(mbtCreator.branchingFactor-1);
 			mbtCreator.threadId=i+1;
@@ -52,9 +85,11 @@ public class Main {
 			mbtCreator.runType=runType;
 			high=low+threadShare-1;
 			mbtCreator.threadHigh=high;
+			mbtCreator.threadStartIndex=threadStartIndex;
 			low=high+1;
 			
 			mbtCreator.start();
+			threadStartIndex+=numIters;
 			mbtThreads[i]=mbtCreator;
 			
 		}
@@ -67,6 +102,14 @@ public class Main {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+		}
+		
+		System.out.println("Congestion Count="+MBTCreator.congestionCount);
+		
+		long maxRandomTimeForRun=0;
+		for(int i=0;i<mbtThreads.length;i++){
+			if(mbtThreads[i].randomGenerationTime>maxRandomTimeForRun)
+				maxRandomTimeForRun=mbtThreads[i].randomGenerationTime;
 		}
 		
 		
@@ -84,6 +127,7 @@ public class Main {
 		}catch(IOException e){
 			e.printStackTrace();
 		}
+		return maxRandomTimeForRun;
 	}
 	
 	public String fill(int length, char c) {
@@ -96,37 +140,91 @@ public class Main {
 	
 	public static void main(String args[]){
 		Main main=new Main();
-		int startThreads=1;
-		int maxThreads=32;
-		int totalIterations=512;
-		int startRange=10;
+		int startThreads=Integer.parseInt(args[1]);
+		int maxThreads=Integer.parseInt(args[2]);
+		int totalIterations=Integer.parseInt(args[3]);
+		int startRange=100;
 		int endRange=100;
 		int runType=Integer.parseInt(args[0]);
-
+		
+	
 		for(int j=startRange;j<=endRange;j=j*10){
+			
+			/* generate all numbers for a range */
+			main.leftElements = new int[totalIterations];
+			main.rightElements = new int[totalIterations];
+			int minKey=2;
+			int maxKey=72980000;
+			/*
+			for(int i=0;i<totalIterations;i++){
+				int leftKey;
+				int rightKey;
+				do{
+					leftKey=main.randInt(minKey,maxKey-1);
+					rightKey=main.randInt(leftKey+1,maxKey);
+				}while((rightKey-leftKey)>j || leftKey==-1 || rightKey==-1);
+				main.leftElements[i]=leftKey;
+				main.rightElements[i]=rightKey;
+			}
+			// rand generation ends 
+			for(int i=0;i<main.leftElements.length;i++){
+				System.out.print(main.leftElements[i]+",");
+			}
+			System.out.println();
+			for(int i=0;i<main.rightElements.length;i++){
+				System.out.print(main.rightElements[i]+",");
+			}
+			System.exit(0);
+			*/
 			
 			FileWriter fw;
 			BufferedWriter bw=null;
+			BufferedWriter bw1=null;
 			try {
-				fw = new FileWriter("type"+runType+"-range"+j+".csv");
+				fw = new FileWriter("type"+runType+"-range"+j+".csv",true);
 				bw = new BufferedWriter(fw);
+				bw1 = new BufferedWriter(new FileWriter("data-type"+runType+"-range"+j+".csv",true));
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
 			for(int i=startThreads;i<=maxThreads;i=i*2){
-				System.out.println("Performing a run with "+i+" threads, range: "+j+" iterations: "+totalIterations);
 				
+				/*try {
+					
+					Runtime runtime=Runtime.getRuntime();
+					runtime.exec("sudo service mysql stop");
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}*/
+				
+				//System.out.println("Performing a run with "+i+" threads, range: "+j+" iterations: "+totalIterations);
+				
+				StatCollector sc=new StatCollector(((Integer)i).toString());
+				Thread statCollector=new Thread(sc);
+				statCollector.start();
 				long startTime=System.currentTimeMillis();
-				main.driver(i,j,totalIterations,runType);
+				long randomGenerationTimeForRun=main.driver(i,j,totalIterations,runType);
 				long endTime=System.currentTimeMillis();
-				long diff = endTime-startTime;
-				float numUpdatesPerSecond=((float)totalIterations/(float)diff)*1000;
-				System.out.println("Completed a run with "+i+" threads. Time Taken= "+TimeUnit.MILLISECONDS.toSeconds(endTime-startTime)+" seconds. "+"Num updates= "+numUpdatesPerSecond+" per second.");
-				
+				sc.stop();
 				try {
-					bw.write(i+","+numUpdatesPerSecond);
+					statCollector.join();
+				} catch (InterruptedException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				long diff = endTime-startTime;
+				diff=diff-randomGenerationTimeForRun;
+				float numUpdatesPerSecond=((float)totalIterations/(float)diff)*1000;
+				//System.out.println("Completed a run with "+i+" threads. Time Taken= "+TimeUnit.MILLISECONDS.toMillis(diff)+" seconds. "+"Num updates= "+numUpdatesPerSecond+" per second.");
+				System.out.println(i+","+numUpdatesPerSecond+" "+"seconds");
+				//System.out.println("Rand Generation Time= "+TimeUnit.MILLISECONDS.toMillis(randomGenerationTimeForRun));
+				//System.out.println("data transferred with " + i + " threads " + data+" KB");
+				try {
+					bw.write(i+","+numUpdatesPerSecond+"\n");
+					//bw1.write(i+","+data+"\n");
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -137,6 +235,7 @@ public class Main {
 			
 			try {
 				bw.close();
+				bw1.close();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
